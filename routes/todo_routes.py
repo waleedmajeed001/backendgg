@@ -3,6 +3,11 @@ from controllers.todo_controller import TodoController
 
 todo_bp = Blueprint('todos', __name__, url_prefix='/api/todos')
 
+@todo_bp.route('/completed', methods=['GET'])
+def get_completed_todos():
+    """GET /api/todos/completed - Get all completed todos"""
+    return TodoController.get_completed_todos()
+
 @todo_bp.route('/<todo_id>/toggle', methods=['PATCH'])
 def toggle_todo(todo_id):
     """PATCH /api/todos/:id/toggle - Toggle todo completion"""
