@@ -1,182 +1,134 @@
 import uuid
-import sqlite3
 from datetime import datetime
 from typing import List, Dict, Optional
-from database import get_database
+from sqlalchemy import Column, String, Boolean, DateTime
+from sqlalchemy.orm import declarative_base, Session
+from database import SessionLocal, engine
+
+Base = declarative_base()
+
+class Todo(Base):
+    __tablename__ = 'todos'
+    id = Column(String, primary_key=True, index=True)
+    text = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    completed = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=True)
+
+# Ensure table is created (for dev convenience)
+Base.metadata.create_all(bind=engine)
 
 class TodoService:
-    def __init__(self):
+    def _init_(self):
         pass
-    
+
     def get_all_todos(self) -> List[Dict]:
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM todos ORDER BY created_at DESC")
-        rows = cursor.fetchall()
-        
-        todos_list = []
-        for row in rows:
-            todos_list.append({
-                'id': row[0],
-                'text': row[1],
-                'color': row[2],
-                'completed': bool(row[3]),
-                'createdAt': row[4],
-                'updatedAt': row[5]
-            })
-        db.close()
-        return todos_list
-    
+        with SessionLocal() as db:
+            todos = db.query(Todo).order_by(Todo.created_at.desc()).all()
+            print("[ALL TODOS IDS]", [t.id for t in todos])
+            return [self._to_dict(todo) for todo in todos]
+
     def get_completed_todos(self) -> List[Dict]:
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM todos WHERE completed = 1 ORDER BY created_at DESC")
-        rows = cursor.fetchall()
-        
-        todos_list = []
-        for row in rows:
-            todos_list.append({
-                'id': row[0],
-                'text': row[1],
-                'color': row[2],
-                'completed': bool(row[3]),
-                'createdAt': row[4],
-                'updatedAt': row[5]
-            })
-        db.close()
-        return todos_list
-    
+        with SessionLocal() as db:
+            todos = db.query(Todo).filter(Todo.completed == True).order_by(Todo.created_at.desc()).all()
+            return [self._to_dict(todo) for todo in todos]
+
     def get_todo_by_id(self, todo_id: str) -> Optional[Dict]:
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM todos WHERE id = ?", (todo_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            result = {
-                'id': row[0],
-                'text': row[1],
-                'color': row[2],
-                'completed': bool(row[3]),
-                'createdAt': row[4],
-                'updatedAt': row[5]
-            }
-            db.close()
-            return result
-        db.close()
-        return None
-    
+        with SessionLocal() as db:
+            all_ids = [t.id for t in db.query(Todo).all()]
+            print("[GET BY ID] All IDs:", all_ids)
+            print("Looking for todo_id:", repr(todo_id))
+            todo = db.query(Todo).filter(Todo.id == todo_id.strip()).first()
+            print("Found todo:", todo)
+            return self._to_dict(todo) if todo else None
+
     def create_todo(self, text: str, color: Optional[str] = None) -> Dict:
         if not text or not text.strip():
             raise ValueError("Text is required")
-        
         todo_id = str(uuid.uuid4())
-        created_at = datetime.now().isoformat()
-        
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute(
-            "INSERT INTO todos (id, text, color, completed, created_at) VALUES (?, ?, ?, ?, ?)",
-            (todo_id, text.strip(), color, False, created_at)
+        created_at = datetime.now()
+        new_todo = Todo(
+            id=todo_id,
+            text=text.strip(),
+            color=color,
+            completed=False,
+            created_at=created_at
         )
-        db.commit()
-        db.close()
-        
-        return {
-            'id': todo_id,
-            'text': text.strip(),
-            'color': color,
-            'completed': False,
-            'createdAt': created_at
-        }
-    
-    def update_todo(self, todo_id: str, text: Optional[str] = None, 
-                   completed: Optional[bool] = None, color: Optional[str] = None) -> Optional[Dict]:
-        existing_todo = self.get_todo_by_id(todo_id)
-        if not existing_todo:
-            return None
-        
-        update_fields = []
-        update_values = []
-        
-        if text is not None:
-            update_fields.append("text = ?")
-            update_values.append(text.strip())
-        if completed is not None:
-            update_fields.append("completed = ?")
-            update_values.append(completed)
-        if color is not None:
-            update_fields.append("color = ?")
-            update_values.append(color)
-        
-        if not update_fields:
-            return existing_todo
-        
-        update_fields.append("updated_at = ?")
-        update_values.append(datetime.now().isoformat())
-        update_values.append(todo_id)
-        
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute(
-            f"UPDATE todos SET {', '.join(update_fields)} WHERE id = ?",
-            update_values
-        )
-        db.commit()
-        db.close()
-        
-        return self.get_todo_by_id(todo_id)
-    
-    def toggle_todo(self, todo_id: str) -> Optional[Dict]:
-        existing_todo = self.get_todo_by_id(todo_id)
-        if not existing_todo:
-            return None
-        
-        new_completed = not existing_todo['completed']
-        updated_at = datetime.now().isoformat()
-        
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute(
-            "UPDATE todos SET completed = ?, updated_at = ? WHERE id = ?",
-            (new_completed, updated_at, todo_id)
-        )
-        db.commit()
-        db.close()
-        
-        return self.get_todo_by_id(todo_id)
-    
-    def delete_todo(self, todo_id: str) -> Optional[Dict]:
-        existing_todo = self.get_todo_by_id(todo_id)
-        if not existing_todo:
-            return None
-        
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
-        db.commit()
-        db.close()
-        
-        return existing_todo
-    
-    def delete_all_todos(self) -> int:
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute("SELECT COUNT(*) FROM todos")
-        count = cursor.fetchone()[0]
-        
-        cursor.execute("DELETE FROM todos")
-        db.commit()
-        db.close()
-        
-        return count
-    
-    def get_todo_count(self) -> int:
-        db = get_database()
-        cursor = db.cursor()
-        cursor.execute("SELECT COUNT(*) FROM todos")
-        count = cursor.fetchone()[0]
-        db.close()
-        return count
+        with SessionLocal() as db:
+            db.add(new_todo)
+            db.commit()
+            db.refresh(new_todo)
+        return self._to_dict(new_todo)
 
-todo_service = TodoService() 
+    def update_todo(self, todo_id: str, text: Optional[str] = None, completed: Optional[bool] = None, color: Optional[str] = None) -> Optional[Dict]:
+        with SessionLocal() as db:
+            all_ids = [t.id for t in db.query(Todo).all()]
+            print("[UPDATE] All IDs:", all_ids)
+            print("[UPDATE] Looking for todo_id:", repr(todo_id))
+            todo = db.query(Todo).filter(Todo.id == todo_id.strip()).first()
+            print("[UPDATE] Found todo:", todo)
+            if not todo:
+                return None
+            if text is not None:
+                todo.text = text.strip()
+            if completed is not None:
+                todo.completed = completed
+            if color is not None:
+                todo.color = color
+            todo.updated_at = datetime.now()
+            db.commit()
+            db.refresh(todo)
+            return self._to_dict(todo)
+
+    def toggle_todo(self, todo_id: str) -> Optional[Dict]:
+        with SessionLocal() as db:
+            all_ids = [t.id for t in db.query(Todo).all()]
+            print("[TOGGLE] All IDs:", all_ids)
+            print("[TOGGLE] Looking for todo_id:", repr(todo_id))
+            todo = db.query(Todo).filter(Todo.id == todo_id.strip()).first()
+            print("[TOGGLE] Found todo:", todo)
+            if not todo:
+                return None
+            todo.completed = not todo.completed
+            todo.updated_at = datetime.now()
+            db.commit()
+            db.refresh(todo)
+            return self._to_dict(todo)
+
+    def delete_todo(self, todo_id: str) -> Optional[Dict]:
+        with SessionLocal() as db:
+            all_ids = [t.id for t in db.query(Todo).all()]
+            print("[DELETE] All IDs:", all_ids)
+            print("[DELETE] Looking for todo_id:", repr(todo_id))
+            todo = db.query(Todo).filter(Todo.id == todo_id.strip()).first()
+            print("[DELETE] Found todo:", todo)
+            if not todo:
+                return None
+            result = self._to_dict(todo)
+            db.delete(todo)
+            db.commit()
+            return result
+
+    def delete_all_todos(self) -> int:
+        with SessionLocal() as db:
+            count = db.query(Todo).count()
+            db.query(Todo).delete()
+            db.commit()
+            return count
+
+    def get_todo_count(self) -> int:
+        with SessionLocal() as db:
+            return db.query(Todo).count()
+
+    def _to_dict(self, todo: Todo) -> Dict:
+        return {
+            'id': todo.id,
+            'text': todo.text,
+            'color': todo.color,
+            'completed': todo.completed,
+            'createdAt': todo.created_at.isoformat() if todo.created_at else None,
+            'updatedAt': todo.updated_at.isoformat() if todo.updated_at else None
+        }
+
+todo_service = TodoService()

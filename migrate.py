@@ -1,15 +1,14 @@
-import sqlite3
-from pathlib import Path
+from sqlalchemy import text
+from database import engine
 from schema import TODOS_TABLE_SCHEMA
 
 def create_tables():
-    db_path = Path('./todo_app.db')
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(TODOS_TABLE_SCHEMA)
-    conn.commit()
-    conn.close()
+    with engine.connect() as conn:
+        # Drop the table if it exists to fix schema issues
+        conn.execute(text("DROP TABLE IF EXISTS todos;"))
+        conn.execute(text(TODOS_TABLE_SCHEMA))
+        conn.commit()
     print("✅ Database tables created successfully!")
 
 if __name__ == "__main__":
-    create_tables() 
+    create_tables()

@@ -43,7 +43,8 @@ class TodoController:
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
         except Exception as error:
-            return jsonify({'error': 'Failed to create todo'}), 500
+            print("Error in create_todo:", error)
+            return jsonify({'error': f'Failed to create todo: {error}'}), 500
     
     @staticmethod
     def update_todo(todo_id: str) -> tuple[Dict[str, Any], int]:
@@ -121,5 +122,4 @@ class TodoController:
             completed_todos = todo_service.get_completed_todos()
             return jsonify(completed_todos), 200
         except Exception as e:
-            return jsonify({"error": "Failed to fetch completed todos"}), 500
-        
+            return jsonify({"error": "Failed to fetch completed todos"}), 500

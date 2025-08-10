@@ -1,15 +1,11 @@
 import os
-import sqlite3
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from pathlib import Path
 
 load_dotenv()
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./todo_app.db')
-db_path = Path('./todo_app.db')
-db_path.parent.mkdir(exist_ok=True)
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-def get_database():
-    return sqlite3.connect('./todo_app.db', check_same_thread=False)
-
-db = get_database() 
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

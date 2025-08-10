@@ -29,7 +29,7 @@ def internal_error(error):
     return jsonify({'error': 'Something went wrong!'}), 500
 
 if __name__ == '__main__':
-    print(f"🚀 Todo backend started on port {PORT}")
-    print(f"📊 Database initialized: todo_app.db")
+    print(f"Todo backend started on port {PORT}")
+    print(f"Database initialized: todo_app.db")
     app.run(host='0.0.0.0', port=PORT, debug=True)
     
