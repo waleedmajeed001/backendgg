@@ -1,23 +1,23 @@
 from flask import request, jsonify
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from services.todo_service import todo_service
 
 class TodoController:
     
     @staticmethod
-    def get_all_todos() -> tuple[Dict[str, Any], int]:
+    def get_all_todos(user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """GET /api/todos - Retrieve all todos"""
         try:
-            todos = todo_service.get_all_todos()
+            todos = todo_service.get_all_todos(user_id)
             return jsonify(todos), 200
         except Exception as error:
             return jsonify({'error': 'Failed to fetch todos'}), 500
     
     @staticmethod
-    def get_todo(todo_id: str) -> tuple[Dict[str, Any], int]:
+    def get_todo(todo_id: str, user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """GET /api/todos/:id - Retrieve a single todo by ID"""
         try:
-            todo = todo_service.get_todo_by_id(todo_id)
+            todo = todo_service.get_todo_by_id(todo_id, user_id)
             if not todo:
                 return jsonify({'error': 'Todo not found'}), 404
             return jsonify(todo), 200
@@ -25,7 +25,7 @@ class TodoController:
             return jsonify({'error': 'Failed to fetch todo'}), 500
     
     @staticmethod
-    def create_todo() -> tuple[Dict[str, Any], int]:
+    def create_todo(user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """POST /api/todos - Create a new todo"""
         try:
             data = request.get_json()
@@ -38,7 +38,7 @@ class TodoController:
             if not text or not text.strip():
                 return jsonify({'error': 'Text is required'}), 400
             
-            new_todo = todo_service.create_todo(text, color)
+            new_todo = todo_service.create_todo(text, user_id, color)
             return jsonify(new_todo), 201
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
@@ -47,7 +47,7 @@ class TodoController:
             return jsonify({'error': f'Failed to create todo: {error}'}), 500
     
     @staticmethod
-    def update_todo(todo_id: str) -> tuple[Dict[str, Any], int]:
+    def update_todo(todo_id: str, user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """PUT /api/todos/:id - Update an existing todo"""
         try:
             data = request.get_json()
@@ -58,7 +58,7 @@ class TodoController:
             completed = data.get('completed')
             color = data.get('color')
             
-            updated_todo = todo_service.update_todo(todo_id, text, completed, color)
+            updated_todo = todo_service.update_todo(todo_id, text, completed, color, user_id)
             if not updated_todo:
                 return jsonify({'error': 'Todo not found'}), 404
             
@@ -67,10 +67,10 @@ class TodoController:
             return jsonify({'error': 'Failed to update todo'}), 500
     
     @staticmethod
-    def toggle_todo(todo_id: str) -> tuple[Dict[str, Any], int]:
+    def toggle_todo(todo_id: str, user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """PATCH /api/todos/:id/toggle - Toggle todo completion status"""
         try:
-            updated_todo = todo_service.toggle_todo(todo_id)
+            updated_todo = todo_service.toggle_todo(todo_id, user_id)
             if not updated_todo:
                 return jsonify({'error': 'Todo not found'}), 404
             
@@ -79,10 +79,10 @@ class TodoController:
             return jsonify({'error': 'Failed to toggle todo'}), 500
     
     @staticmethod
-    def delete_todo(todo_id: str) -> tuple[Dict[str, Any], int]:
+    def delete_todo(todo_id: str, user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """DELETE /api/todos/:id - Delete a specific todo"""
         try:
-            deleted_todo = todo_service.delete_todo(todo_id)
+            deleted_todo = todo_service.delete_todo(todo_id, user_id)
             if not deleted_todo:
                 return jsonify({'error': 'Todo not found'}), 404
             
@@ -94,10 +94,10 @@ class TodoController:
             return jsonify({'error': 'Failed to delete todo'}), 500
     
     @staticmethod
-    def delete_all_todos() -> tuple[Dict[str, Any], int]:
+    def delete_all_todos(user_id: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """DELETE /api/todos - Delete all todos"""
         try:
-            deleted_count = todo_service.delete_all_todos()
+            deleted_count = todo_service.delete_all_todos(user_id)
             return jsonify({
                 'message': 'All todos deleted successfully',
                 'deletedCount': deleted_count
@@ -123,3 +123,17 @@ class TodoController:
             return jsonify(completed_todos), 200
         except Exception as e:
             return jsonify({"error": "Failed to fetch completed todos"}), 500
+
+    @staticmethod
+    def get_guest_todo_count() -> tuple[Dict[str, Any], int]:
+        """GET /api/todos/guest-count - Get guest todo count"""
+        try:
+            count = todo_service.get_guest_todo_count()
+            remaining = max(0, 3 - count)
+            return jsonify({
+                'count': count,
+                'remaining': remaining,
+                'limit': 3
+            }), 200
+        except Exception as e:
+            return jsonify({"error": "Failed to get guest todo count"}), 500

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from routes.todo_routes import todo_bp
 from routes.health_routes import health_bp
+from routes.user_routes import user_bp
 from migrate import create_tables
 
 load_dotenv()
@@ -19,6 +20,7 @@ create_tables()
 
 app.register_blueprint(todo_bp)
 app.register_blueprint(health_bp)
+app.register_blueprint(user_bp)
 
 @app.errorhandler(404)
 def not_found(error):
